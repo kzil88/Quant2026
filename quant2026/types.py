@@ -60,3 +60,6 @@ class RiskMetrics:
     sharpe_ratio: float = 0.0
     exposure: dict[str, float] = field(default_factory=dict)  # sector/factor exposure
     warnings: list[str] = field(default_factory=list)
+    var_95: float | None = None
+    cvar_95: float | None = None
+    stop_loss_triggers: list[dict[str, Any]] = field(default_factory=list)

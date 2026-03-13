@@ -66,12 +66,15 @@ class BacktestEngine:
         self,
         data: pd.DataFrame,
         targets: dict[date, PortfolioTarget],
+        optimizer: object | None = None,
     ) -> BacktestResult:
         """Run backtest given data and rebalance targets.
 
         Args:
             data: daily OHLCV with columns [stock_code, date, open, high, low, close, volume]
             targets: {rebalance_date: PortfolioTarget}
+            optimizer: Optional PortfolioOptimizer; if provided with turnover_constraint,
+                       current_weights will be passed to combine() during rebalance.
 
         Returns:
             BacktestResult

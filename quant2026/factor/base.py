@@ -21,12 +21,18 @@ class Factor(ABC):
         return "unknown"
 
     @abstractmethod
-    def compute(self, data: pd.DataFrame, target_date: date) -> pd.Series:
+    def compute(
+        self,
+        data: pd.DataFrame,
+        target_date: date,
+        financial_data: pd.DataFrame | None = None,
+    ) -> pd.Series:
         """Compute factor values for all stocks.
 
         Args:
-            data: cleaned daily quotes (output from data layer)
+            data: cleaned daily quotes (stock_code, date, open, high, low, close, volume, amount)
             target_date: compute factor as of this date
+            financial_data: optional financial statement data (stock_code, eps, bps, dps, roe, ...)
 
         Returns:
             Series: stock_code -> factor_value
