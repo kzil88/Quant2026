@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from quant2026.types import PortfolioTarget
+from quant2026.types import PortfolioTarget, Signal, StrategyResult
 from quant2026.execution.t_plus_one import TPlusOneManager
 from quant2026.execution.volume_constraint import VolumeConstraint
 
@@ -27,6 +27,9 @@ class BacktestConfig:
     volume_constraint: bool = False      # 是否启用成交量约束
     max_participation_rate: float = 0.10 # 最大参与率
     order_type: str = "market"           # "market" | "limit" | "vwap"
+    rebalance_mode: str = "periodic"     # "periodic" | "signal" | "hybrid"
+    signal_sell_threshold: float = 0.0   # signal/hybrid: SELL 信号触发立即减仓
+    signal_buy_max_weight: float = 0.05  # hybrid: 非调仓日单次加仓上限
 
 
 @dataclass
@@ -73,6 +76,7 @@ class BacktestEngine:
         data: pd.DataFrame,
         targets: dict[date, PortfolioTarget],
         optimizer: object | None = None,
+        daily_signals: dict[date, pd.Series] | None = None,
     ) -> BacktestResult:
         """Run backtest given data and rebalance targets.
 
@@ -81,6 +85,7 @@ class BacktestEngine:
             targets: {rebalance_date: PortfolioTarget}
             optimizer: Optional PortfolioOptimizer; if provided with turnover_constraint,
                        current_weights will be passed to combine() during rebalance.
+            daily_signals: {date: Series(stock_code -> Signal)} for signal/hybrid mode.
 
         Returns:
             BacktestResult
@@ -163,6 +168,53 @@ class BacktestEngine:
 
                 holdings = new_weights
                 rebal_idx += 1
+
+            # ── Signal-driven intraday adjustments (hybrid/signal mode) ──
+            if (
+                cfg.rebalance_mode in ("signal", "hybrid")
+                and daily_signals is not None
+                and dt_date in daily_signals
+            ):
+                sigs = daily_signals[dt_date]
+                adjusted = False
+
+                for stock, sig in sigs.items():
+                    if sig == Signal.SELL and stock in holdings and holdings[stock] > 0:
+                        # T+1 check: can't sell stocks bought today
+                        if t1_mgr is not None and not t1_mgr.can_sell(stock, dt_date):
+                            continue
+                        old_w = holdings[stock]
+                        holdings[stock] = 0.0
+                        sell_cost = old_w * (cfg.commission_rate + cfg.stamp_tax_rate + cfg.slippage_pct)
+                        capital *= (1 - sell_cost)
+                        trades.append({
+                            "date": dt_date, "stock": stock, "action": "signal_sell",
+                            "old_weight": old_w, "new_weight": 0.0,
+                        })
+                        adjusted = True
+                        logger.debug(f"Signal SELL {stock} on {dt_date}, weight {old_w:.4f} -> 0")
+
+                    elif sig == Signal.BUY and holdings.get(stock, 0.0) == 0.0:
+                        # Only in hybrid mode: add small position between rebalance days
+                        if cfg.rebalance_mode == "hybrid":
+                            cash_weight = 1.0 - sum(holdings.values())
+                            add_w = min(cfg.signal_buy_max_weight, cash_weight)
+                            if add_w > 0.001:
+                                holdings[stock] = add_w
+                                buy_cost = add_w * (cfg.commission_rate + cfg.slippage_pct)
+                                capital *= (1 - buy_cost)
+                                if t1_mgr is not None:
+                                    t1_mgr.record_buy(stock, dt_date)
+                                trades.append({
+                                    "date": dt_date, "stock": stock, "action": "signal_buy",
+                                    "old_weight": 0.0, "new_weight": add_w,
+                                })
+                                adjusted = True
+                                logger.debug(f"Signal BUY {stock} on {dt_date}, weight 0 -> {add_w:.4f}")
+
+                # Clean up zero-weight holdings
+                if adjusted:
+                    holdings = {s: w for s, w in holdings.items() if w > 0.001}
 
             # Daily P&L
             if i > 0 and holdings:

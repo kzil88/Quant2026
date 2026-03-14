@@ -43,6 +43,8 @@ class BacktestConfigYaml:
     slippage: float = 0.001
     rebalance_frequency: str = "monthly"
     benchmark: str = "000300"
+    rebalance_mode: str = "periodic"          # "periodic" | "signal" | "hybrid"
+    signal_buy_max_weight: float = 0.05       # hybrid 模式非调仓日单次加仓上限
 
 
 @dataclass
@@ -147,6 +149,8 @@ def _parse_backtest(raw: dict) -> BacktestConfigYaml:
         slippage=raw.get("slippage", 0.001),
         rebalance_frequency=raw.get("rebalance_frequency", "monthly"),
         benchmark=raw.get("benchmark", "000300"),
+        rebalance_mode=raw.get("rebalance_mode", "periodic"),
+        signal_buy_max_weight=raw.get("signal_buy_max_weight", 0.05),
     )
 
 

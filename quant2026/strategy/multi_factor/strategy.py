@@ -11,8 +11,9 @@ from quant2026.strategy.base import Strategy
 class MultiFactorStrategy(Strategy):
     """Equal/custom weighted multi-factor scoring."""
 
-    def __init__(self, factor_weights: dict[str, float] | None = None):
+    def __init__(self, factor_weights: dict[str, float] | None = None, top_n: int = 30):
         self._factor_weights = factor_weights
+        self._top_n = top_n
 
     @property
     def name(self) -> str:
@@ -38,8 +39,19 @@ class MultiFactorStrategy(Strategy):
             if factor_name in factor_matrix.columns:
                 scores += factor_matrix[factor_name].fillna(0) * weight
 
+        sorted_scores = scores.sort_values(ascending=False)
+
+        # Generate BUY/SELL/HOLD signals based on ranking
+        from quant2026.types import Signal
+        signals = pd.Series(Signal.HOLD, index=sorted_scores.index)
+        top_stocks = sorted_scores.head(self._top_n).index
+        bottom_stocks = sorted_scores.tail(self._top_n).index
+        signals[top_stocks] = Signal.BUY
+        signals[bottom_stocks] = Signal.SELL
+
         return StrategyResult(
             name=self.name,
             date=target_date,
-            scores=scores.sort_values(ascending=False),
+            scores=sorted_scores,
+            signals=signals,
         )

@@ -106,6 +106,20 @@ class EventDrivenStrategy(Strategy):
             dtype=float,
         )
 
+        # Generate BUY/SELL/HOLD signals based on score thresholds
+        from quant2026.types import Signal
+        signals = pd.Series(Signal.HOLD, index=score_series.index)
+        if not score_series.empty:
+            std = score_series.std()
+            if std > 0:
+                buy_mask = score_series > std
+                sell_mask = score_series < -std
+            else:
+                buy_mask = score_series > 0
+                sell_mask = score_series < 0
+            signals[buy_mask] = Signal.BUY
+            signals[sell_mask] = Signal.SELL
+
         logger.info(
             "EventDriven: {} stocks with events, score range [{:.4f}, {:.4f}]",
             sum(1 for v in score_series if v != 0),
@@ -117,6 +131,7 @@ class EventDrivenStrategy(Strategy):
             name=self.name,
             date=target_date,
             scores=score_series,
+            signals=signals,
             metadata=metadata,
         )
 
