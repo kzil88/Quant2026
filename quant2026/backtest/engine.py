@@ -8,6 +8,8 @@ import pandas as pd
 from loguru import logger
 
 from quant2026.types import PortfolioTarget
+from quant2026.execution.t_plus_one import TPlusOneManager
+from quant2026.execution.volume_constraint import VolumeConstraint
 
 
 @dataclass
@@ -20,7 +22,11 @@ class BacktestConfig:
     stamp_tax_rate: float = 0.0005       # 印花税 (卖出时收取, 2024年减半)
     slippage_pct: float = 0.001          # 滑点
     rebalance_days: int = 5              # 每N个交易日调仓
-    t_plus_1: bool = True                # T+1 限制
+    t_plus_1: bool = True                # T+1 限制（向后兼容字段名）
+    t_plus_one: bool = True              # T+1 限制
+    volume_constraint: bool = False      # 是否启用成交量约束
+    max_participation_rate: float = 0.10 # 最大参与率
+    order_type: str = "market"           # "market" | "limit" | "vwap"
 
 
 @dataclass
@@ -98,13 +104,51 @@ class BacktestEngine:
         rebalance_dates = sorted(targets.keys())
         rebal_idx = 0
 
+        # T+1 manager
+        t1_mgr = TPlusOneManager() if (cfg.t_plus_one or cfg.t_plus_1) else None
+
+        # Volume constraint
+        vol_constraint = (
+            VolumeConstraint(max_participation_rate=cfg.max_participation_rate)
+            if cfg.volume_constraint else None
+        )
+
+        # Precompute volume pivot for volume constraint
+        vol_pivot = None
+        if vol_constraint and "volume" in data.columns:
+            vol_pivot = data.pivot_table(index="date", columns="stock_code", values="volume")
+
         for i, dt in enumerate(dates):
             dt_date = pd.Timestamp(dt).date()
 
             # Check rebalance
             if rebal_idx < len(rebalance_dates) and dt_date >= rebalance_dates[rebal_idx]:
                 target = targets[rebalance_dates[rebal_idx]]
-                new_weights = target.weights.to_dict()
+                target_weights = target.weights.copy()
+                current_series = pd.Series(holdings)
+
+                # T+1 filter
+                if t1_mgr is not None and not current_series.empty:
+                    target_weights = t1_mgr.filter_sells(
+                        target_weights, current_series, dt_date
+                    )
+
+                # Volume constraint
+                if vol_constraint is not None and vol_pivot is not None and dt in vol_pivot.index:
+                    daily_vols = vol_pivot.loc[dt].dropna()
+                    curr_prices = pivot.loc[dt].dropna()
+                    target_weights, _ = vol_constraint.adjust_portfolio(
+                        target_weights, current_series, capital,
+                        daily_vols, curr_prices,
+                    )
+
+                new_weights = target_weights.to_dict()
+
+                # Record buys for T+1
+                if t1_mgr is not None:
+                    for s, w in new_weights.items():
+                        if w > holdings.get(s, 0):
+                            t1_mgr.record_buy(s, dt_date)
 
                 # Calculate turnover
                 turn = sum(

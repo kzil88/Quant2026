@@ -1,0 +1,112 @@
+# Quant2026 默认配置
+data:
+  provider: akshare
+  cache:
+    enabled: true
+    cache_dir: .cache
+    ttl_hours: 24
+  stock_pool:
+    - "600519"  # 贵州茅台
+    - "000858"  # 五粮液
+    - "601318"  # 中国平安
+    - "600036"  # 招商银行
+    - "000333"  # 美的集团
+    - "600276"  # 恒瑞医药
+    - "601166"  # 兴业银行
+    - "000001"  # 平安银行
+    - "600900"  # 长江电力
+    - "601888"  # 中国中免
+    - "000651"  # 格力电器
+    - "600030"  # 中信证券
+    - "601398"  # 工商银行
+    - "600809"  # 山西汾酒
+    - "002714"  # 牧原股份
+    - "600887"  # 伊利股份
+    - "000568"  # 泸州老窖
+    - "601012"  # 隆基绿能
+    - "600585"  # 海螺水泥
+    - "002415"  # 海康威视
+    - "601668"  # 中国建筑
+    - "600031"  # 三一重工
+    - "000002"  # 万科A
+    - "600048"  # 保利发展
+    - "601899"  # 紫金矿业
+    - "002304"  # 洋河股份
+    - "600309"  # 万华化学
+    - "601601"  # 中国太保
+    - "000725"  # 京东方A
+    - "002475"  # 立讯精密
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+
+backtest:
+  initial_capital: 1000000
+  commission: 0.0003
+  stamp_tax: 0.001
+  slippage: 0.001
+  rebalance_frequency: monthly  # daily | weekly | monthly
+  benchmark: "000300"
+
+strategies:
+  - name: multi_factor
+    type: MultiFactorStrategy
+    weight: 0.6
+    params:
+      top_n: 10
+  - name: mean_reversion
+    type: MeanReversionStrategy
+    weight: 0.4
+    params:
+      window: 20
+      zscore_threshold: -1.0
+      use_bollinger: true
+      use_rsi: true
+
+portfolio:
+  method: markowitz  # equal | markowitz | risk_parity
+  markowitz:
+    risk_free_rate: 0.025
+    max_single_weight: 0.10
+  turnover:
+    max_turnover: 0.3
+    penalty_weight: 0.01
+
+risk:
+  max_position_size: 0.10
+  max_sector_exposure: 0.30
+  stop_loss:
+    stock_stop_loss: -0.10
+    portfolio_stop_loss: -0.15
+    trailing_stop: -0.08
+  blacklist: []
+
+execution:
+  t_plus_one: true
+  volume_constraint: false
+  max_participation_rate: 0.10
+  order_type: market
+
+logging:
+  level: INFO
+  log_dir: logs
+  rotation: "10 MB"
+  retention: "30 days"
+
+factors:
+  - momentum_20d
+  - volatility_20d
+  - turnover_20d
+  - rsi_14d
+  - macd_hist
+  - bollinger_pos
+  - ep
+  - bp
+  - roe
+  - neg_debt_ratio
+  - revenue_growth
+  - profit_growth
+
+output:
+  dir: examples/output
+  report: true
+  equity_curve: true

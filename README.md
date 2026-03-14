@@ -1,5 +1,7 @@
 # Quant2026
 
+[![Tests](https://github.com/YOUR_USERNAME/Quant2026/actions/workflows/test.yml/badge.svg)](https://github.com/YOUR_USERNAME/Quant2026/actions/workflows/test.yml)
+
 Multi-strategy quantitative investment framework for China A-shares (A股多策略量化投资框架).
 
 ## Architecture

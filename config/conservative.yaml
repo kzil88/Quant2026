@@ -1,0 +1,100 @@
+# Quant2026 保守配置 — 低仓位、紧止损、风险平价
+data:
+  provider: akshare
+  cache:
+    enabled: true
+    cache_dir: .cache
+    ttl_hours: 24
+  stock_pool:
+    - "600519"
+    - "000858"
+    - "601318"
+    - "600036"
+    - "000333"
+    - "600276"
+    - "601166"
+    - "000001"
+    - "600900"
+    - "601888"
+    - "000651"
+    - "600030"
+    - "601398"
+    - "600809"
+    - "002714"
+    - "600887"
+    - "000568"
+    - "601012"
+    - "600585"
+    - "002415"
+    - "601668"
+    - "600031"
+    - "000002"
+    - "600048"
+    - "601899"
+    - "002304"
+    - "600309"
+    - "601601"
+    - "000725"
+    - "002475"
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+
+backtest:
+  initial_capital: 1000000
+  commission: 0.0003
+  stamp_tax: 0.001
+  slippage: 0.001
+  rebalance_frequency: monthly
+  benchmark: "000300"
+
+strategies:
+  - name: multi_factor
+    type: MultiFactorStrategy
+    weight: 0.5
+    params:
+      top_n: 20
+  - name: mean_reversion
+    type: MeanReversionStrategy
+    weight: 0.5
+    params:
+      window: 30
+      zscore_threshold: -0.5
+      use_bollinger: true
+      use_rsi: true
+
+portfolio:
+  method: risk_parity
+  markowitz:
+    risk_free_rate: 0.025
+    max_single_weight: 0.05
+  turnover:
+    max_turnover: 0.2
+    penalty_weight: 0.02
+
+risk:
+  max_position_size: 0.05
+  max_sector_exposure: 0.20
+  stop_loss:
+    stock_stop_loss: -0.05
+    portfolio_stop_loss: -0.08
+    trailing_stop: -0.04
+  blacklist: []
+
+factors:
+  - momentum_20d
+  - volatility_20d
+  - turnover_20d
+  - rsi_14d
+  - macd_hist
+  - bollinger_pos
+  - ep
+  - bp
+  - roe
+  - neg_debt_ratio
+  - revenue_growth
+  - profit_growth
+
+output:
+  dir: examples/output
+  report: true
+  equity_curve: true

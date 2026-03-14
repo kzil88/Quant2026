@@ -14,11 +14,18 @@ dependencies = [
     "pydantic>=2.6",
     "tqdm>=4.66",
     "pyarrow>=15.0",        # Parquet 缓存
+    "click>=8.1",           # CLI
 ]
+
+[project.scripts]
+quant2026 = "quant2026.cli:main"
 
 [project.optional-dependencies]
 ml = ["scikit-learn>=1.4", "lightgbm>=4.3", "xgboost>=2.0"]
-dev = ["pytest>=8.0", "ruff>=0.3", "ipython>=8.22"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.3", "ipython>=8.22"]
+
+[tool.setuptools.packages.find]
+include = ["quant2026*"]
 
 [tool.ruff]
 target-version = "py312"
@@ -26,3 +33,11 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests",
+    "network: marks tests that need network access",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
